@@ -12,3 +12,5 @@ Modules :<br>
 <li>pandas</li>
 <li>matplotlib</li>
 </ul>
+<br>
+To install them all : <code>pip install -r requirements.txt</code>
