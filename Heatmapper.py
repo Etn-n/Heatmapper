@@ -11,6 +11,8 @@ class MainWindow(QWidget):
         super().__init__(parent)
         options=[]
         self.resize(1000,800)
+        self.setWindowTitle("Heatmapper")
+        self.setWindowIcon(QIcon(f"{os.path.dirname(os.path.realpath(__file__))}/data/icon.png"))
         Big_layout = QGridLayout()
         self.setLayout(Big_layout)
         self.fileselectWidget = QGroupBox("Select the Directory to search or File to analyse")
@@ -22,11 +24,12 @@ class MainWindow(QWidget):
         
         self.OldBtn = QCheckBox(tristate=True,text="Get all files")
         self.OldBtn.clicked.connect(self.changeOldBtn)
-
+        ##CSV File Select
         self.fileLineedit= QLineEdit()
         self.fileLineedit.setPlaceholderText("Select a CSV File")
         self.fileLineedit.returnPressed.connect(self.GetItems)
-        ##File Select Button Prompt
+
+        
         self.dirselect = QPushButton("Select Directory")
         self.dirselect.setFocusPolicy(Qt.NoFocus)
         self.dirselect.setDefault(True)
