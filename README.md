@@ -8,7 +8,6 @@ Modules :<br>
 <ul>
 <li>subprocess,os,sys,csv (should be installed automatically with python)</li>
 <li>PySide6</li>
-<li>numpy</li>
 <li>pandas</li>
 <li>matplotlib</li>
 </ul>
