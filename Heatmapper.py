@@ -56,6 +56,11 @@ class MainWindow(QWidget):
         self.RunAnalysisBtn.setDefault(True)
         self.RunAnalysisBtn.clicked.connect(self.makeHeatmapTab)
         self.RunAnalysisBtn.setDisabled(1)
+        self.DupeBtn = QPushButton("Run Dupe Detection")
+        self.DupeBtn.setFocusPolicy(Qt.NoFocus)
+        self.DupeBtn.setDefault(True)
+        self.DupeBtn.clicked.connect(self.makeDupeTab)
+        self.DupeBtn.setDisabled(1)
         self.RunBtn.setDisabled(1)
         self.fileselectlayout.addWidget(self.lineedit,0,0,1,1)
         self.fileselectlayout.addWidget(self.OldBtn,1,0,Qt.AlignmentFlag.AlignHCenter)
@@ -69,6 +74,7 @@ class MainWindow(QWidget):
         self.CSVselectedLabel= QLineEdit(text="CSV File currently in use : none",readOnly=True,alignment=Qt.AlignmentFlag.AlignCenter,frame=False)
         self.CSVselectedLabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0)')
         self.fileselectlayout.addWidget(self.CSVselectedLabel,3,0,1,3)
+
         Big_layout.addWidget(self.fileselectWidget,0,0,1,5)
 
 
@@ -85,11 +91,52 @@ class MainWindow(QWidget):
         self.Depthlabel=QLabel(text="Select Depth to analyse :")
         self.Depthlabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0)')
         Big_layout.addWidget(self.Depthlabel,1,0)
-        Big_layout.addWidget(self.profMaxSpinBox,1,1,1,2)
-        Big_layout.addWidget(self.RunAnalysisBtn,1,3)
+        Big_layout.addWidget(self.profMaxSpinBox,1,1)
+        Big_layout.addWidget(self.RunAnalysisBtn,1,2)
+        Big_layout.addWidget(self.DupeBtn,1,3)
         Big_layout.addWidget(self.Run3dBtn,1,4)
         Big_layout.addWidget(self.TabBox,2,0,1,5)
 
+
+
+    def makeDupeTab(self):
+        if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv"):
+            os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv")
+        rowIndex=0
+        columnIndex=0
+        df = read_csv(self.selectCSV,index_col=False)
+        df = df[df.duplicated(['Hash'], keep=False)]
+        df = df.drop(df.columns[1:-4],axis=1)
+        Hash_index = df.columns.get_loc("Hash")
+        df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv", index=False)
+        subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}/data/xan.exe sort -s {Hash_index} -o '{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv' '{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv'"])
+        os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv")
+        csvDupe = f'{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv'
+
+        for i in range(self.TabBox.count()):
+            if self.TabBox.tabText(i)== "Duplicates":
+                self.TabBox.removeTab(i)
+
+        with open(csvDupe ,encoding='utf-8',newline='') as csvfile:
+            csv_reader = csv.reader(csvfile, delimiter=',')
+            headers = next(csv_reader)
+            colNum = csvfile.readline().count(',')
+            lines = sum(1 for line in csvfile)
+        self.DupeTable= QTableWidget(columnCount=5,rowCount=lines)
+        self.DupeTable.cellClicked.connect(self.cellClickDupe)
+        self.DupeTable.setHorizontalHeaderLabels(headers)
+        with open(csvDupe ,encoding='utf-8',newline='') as csvfile:
+            csv_reader = csv.reader(csvfile, delimiter=',')
+            next(csv_reader, None)
+            for row in csv_reader:
+                for i in range(0,5):
+                    item = QTableWidgetItem(f"{row[i]}")
+                    item.setTextAlignment(Qt.AlignCenter)
+                    item.setFlags(item.flags() ^ Qt.ItemIsEditable)
+                    self.DupeTable.setItem(rowIndex,i,item)
+                rowIndex+=1
+        self.DupeTable.resizeColumnsToContents()
+        self.TabBox.addTab(self.DupeTable, "Duplicates")
     def makeCSVTab(self):
         rowIndex=0
         columnIndex=0
@@ -117,14 +164,14 @@ class MainWindow(QWidget):
         x = f"{self.profMaxSpinBox.value()}"
         Lvl='path'+x
         size_per_folder_per_year = df.groupby([Lvl,'timestamp'], as_index=False)['Size'].sum()
-        print(size_per_folder_per_year[Lvl].count())
+        #print(size_per_folder_per_year[Lvl].count())
         x,y,z,dx,dy,dz = [],[],[],[],[],[]
 
         X = size_per_folder_per_year[Lvl].to_numpy()
         Y = size_per_folder_per_year['timestamp'].to_numpy()
         Z = size_per_folder_per_year['Size'].to_numpy()
         dates = list(range(Y.min(),Y.max()+2))
-        print(size_per_folder_per_year)
+        #print(size_per_folder_per_year)
         lastpath,xvalue = "",0
         indexX,labels=[],[]
         for i in range(0,len(size_per_folder_per_year)):
@@ -138,7 +185,7 @@ class MainWindow(QWidget):
 
         labels.append("")
 
-        print(len(indexX))
+        #print(len(indexX))
 
         for i in range(0,len(size_per_folder_per_year)):
             x.append(indexX[i]-0.875),y.append(Y[i]+0.125),z.append(0),dx.append(0.75),dy.append(0.75),dz.append((Z[i]))
@@ -152,14 +199,17 @@ class MainWindow(QWidget):
     def makeHeatmapTab(self):
         if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv"):
             os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv")
-        self.TabBox.removeTab(1)
+        for i in range(self.TabBox.count()):
+            if self.TabBox.tabText(i)== "Heatmap":
+                self.TabBox.removeTab(i)
+
         x = self.profMaxSpinBox.value()+1
         subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}/data/xan.exe sort -s {x} -o '{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv' '{self.selectCSV}'"])
         self.sortedCSV = f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv"
         with open(self.sortedCSV, newline='',encoding='utf-8') as csvfile:
             next(csvfile)
             self.fullweight = sum(int(r[-1]) for r in csv.reader(csvfile))
-        print(self.fullweight)
+        #print(self.fullweight)
         self.BigList = {}
         self.name=""
         self.annee = 0
@@ -230,11 +280,13 @@ class MainWindow(QWidget):
             colIndex=1
             rowIndex+=1
         self.HeatmapTable.resizeColumnsToContents()
-        
-        self.TabBox.removeTab(0)
         self.TabBox.addTab(self.HeatmapTable, "Heatmap")
+    def cellClickDupe(self,row,column):
+        link = self.DupeTable.item(row,1).text().replace("/","\\")+"\\"+self.DupeTable.item(row,2).text()
+        print(link)
+        subprocess.Popen(fr'explorer /select,"{link}"')
     def cellClick(self,row,column):
-        link = self.HeatmapTable.item(row,0).text().replace("\\","//")
+        link = self.HeatmapTable.item(row,0).text().replace("/","\\")
         print(link)
         os.startfile(fr"{link}")
     def changeOldBtn(self):
@@ -280,21 +332,24 @@ class MainWindow(QWidget):
         self.updateLabel()
         self.Run3dBtn.setDisabled(0)
         self.RunAnalysisBtn.setDisabled(0)
+        self.DupeBtn.setDisabled(0)
     def makeTab(self):
         self.CSVTable = self.makeCSVTab()
-        self.TabBox.removeTab(0)
+        for i in range(self.TabBox.count()):
+            if self.TabBox.tabText(i)== "CSV":
+                self.TabBox.removeTab(i)
         self.TabBox.addTab(self.CSVTable, "CSV")
     def updateLabel(self):
         self.CSVselectedLabel.setText(f"CSV File currently in use : {self.selectCSV}")
         with open(self.selectCSV, newline='',encoding='utf-8') as csvfile:
             self.colNum = csvfile.readline().count(',')
             self.lines = sum(1 for line in csvfile)
-            print("colonnes:",self.colNum," path depth :",self.colNum-3)
-            print("lignes:",self.lines)
+            #print("colonnes:",self.colNum," path depth :",self.colNum-4)
+            #print("lignes:",self.lines)
         self.profMaxSpinBox.setDisabled(0)
         self.profMaxSpinBox.setValue(0)
         self.TabBox.setDisabled(0)
-        self.profMaxSpinBox.setMaximum(self.colNum-3)
+        self.profMaxSpinBox.setMaximum(self.colNum-4)
     def open_file_dialog_Dossier(self):
         dialog = QFileDialog(self,"Choose a Folder")
         dialog.setFileMode(QFileDialog.FileMode.Directory)
@@ -317,6 +372,7 @@ class MainWindow(QWidget):
             print(self.selectCSV)
             self.Run3dBtn.setDisabled(0)
             self.RunAnalysisBtn.setDisabled(0)
+            self.DupeBtn.setDisabled(0)
 
 
 if __name__ == "__main__":
