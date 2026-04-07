@@ -56,6 +56,7 @@ $fieldSep = ','
   foreach ($file in $Files) {
     $Year = $file.LastWriteTime.Year
     $fullname = $file.FullName;$onlypath = Split-Path -Path "$fullname" -Parent;
+	$hash = Get-FileHash $fullname
     #Separate the path (by \) in an array
     $pathArray = $onlypath -split "\\"
     $overallLength = $overallLength + $file.Length
@@ -66,7 +67,7 @@ $fieldSep = ','
     for($i=0;$i -lt $padding;$i++) {
         $details["path"+$i.ToString()] = $pathArray[0..$i] -join "/"
     }
-    $details["Name"] = $file;$details["Size"] = $file.Length
+    $details["Name"] = $file;$detail["Hash"]=$hash;$details["Size"] = $file.Length
     $results += New-Object PSObject -Property $details
     $percentDone = [math]::Round(100*$index/$NumberofFiles,2).ToString('00.00')
     $shortfilename = $file.Name[0..59] -join '';$indexpadded = $index.ToString($NumberLengthString) 
