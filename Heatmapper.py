@@ -1,15 +1,16 @@
-import subprocess,os,sys,csv
+import subprocess
+import os
+import sys
+import csv
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QSpinBox,QTabWidget,QCheckBox,QTableWidget,QTableWidgetItem,QApplication,QLineEdit,QWidget,QLabel,QGridLayout,QGroupBox,QPushButton,QFileDialog
-from PySide6.QtGui import QIcon,QFont,QStandardItemModel,QPalette,QColor
-import numpy as np
+from PySide6.QtWidgets import QSpinBox, QTabWidget, QCheckBox, QTableWidget, QTableWidgetItem, QApplication, QLineEdit, QWidget, QLabel, QGridLayout, QGroupBox, QPushButton, QFileDialog
+from PySide6.QtGui import QIcon, QColor
 from pandas import read_csv
 import matplotlib.pyplot as plt
 
 class MainWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        options=[]
         self.resize(1000,800)
         self.setWindowTitle("Heatmapper")
         self.setWindowIcon(QIcon(f"{os.path.dirname(os.path.realpath(__file__))}/data/icon.png"))
@@ -74,7 +75,6 @@ class MainWindow(QWidget):
         self.CSVselectedLabel= QLineEdit(text="CSV File currently in use : none",readOnly=True,alignment=Qt.AlignmentFlag.AlignCenter,frame=False)
         self.CSVselectedLabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0)')
         self.fileselectlayout.addWidget(self.CSVselectedLabel,3,0,1,3)
-
         Big_layout.addWidget(self.fileselectWidget,0,0,1,5)
 
 
@@ -103,7 +103,6 @@ class MainWindow(QWidget):
         if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv"):
             os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv")
         rowIndex=0
-        columnIndex=0
         df = read_csv(self.selectCSV,index_col=False)
         df = df[df.duplicated(['Hash'], keep=False)]
         df = df.drop(df.columns[1:-4],axis=1)
@@ -120,7 +119,6 @@ class MainWindow(QWidget):
         with open(csvDupe ,encoding='utf-8',newline='') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=',')
             headers = next(csv_reader)
-            colNum = csvfile.readline().count(',')
             lines = sum(1 for line in csvfile)
         self.DupeTable= QTableWidget(columnCount=5,rowCount=lines)
         self.DupeTable.cellClicked.connect(self.cellClickDupe)
@@ -139,7 +137,6 @@ class MainWindow(QWidget):
         self.TabBox.addTab(self.DupeTable, "Duplicates")
     def makeCSVTab(self):
         rowIndex=0
-        columnIndex=0
         with open(self.selectCSV ,encoding='utf-8',newline='') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=',')
             self.headers = next(csv_reader)
