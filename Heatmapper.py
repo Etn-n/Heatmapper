@@ -4,7 +4,7 @@ import sys
 import csv
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSpinBox, QTabWidget, QCheckBox, QTableWidget,QDialogButtonBox, QTableWidgetItem, QApplication, QLineEdit, QWidget, QLabel, QGridLayout, QGroupBox, QPushButton, QFileDialog
-from PySide6.QtGui import QIcon, QColor
+from PySide6.QtGui import QIcon, QColor, QGuiApplication
 from pandas import read_csv
 import matplotlib.pyplot as plt
 
@@ -25,7 +25,7 @@ class MainWindow(QWidget):
         
 
         self.BtnBox = QDialogButtonBox(orientation=Qt.Horizontal,centerButtons=True)
-        self.OldBtn = QCheckBox(tristate=True,text="Get all files")
+        self.OldBtn = QCheckBox(tristate=True,text="All files of all dates are kept (click to change)")
         self.OldBtn.clicked.connect(self.changeOldBtn)
 
         self.BtnBox.addButton(self.OldBtn,QDialogButtonBox.YesRole)
@@ -79,6 +79,8 @@ class MainWindow(QWidget):
         self.fileselectWidget.setLayout(self.fileselectlayout)
         self.CSVselectedLabel= QLineEdit(text="CSV File currently in use : none",readOnly=True,alignment=Qt.AlignmentFlag.AlignCenter,frame=False)
         self.CSVselectedLabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0)')
+        if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
+            self.CSVselectedLabel.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0)')
         self.fileselectlayout.addWidget(self.CSVselectedLabel,3,0,1,3)
         Big_layout.addWidget(self.fileselectWidget,0,0,1,5)
 
@@ -95,16 +97,19 @@ class MainWindow(QWidget):
         
         self.Depthlabel=QLabel(text="Select Depth to analyse :")
         self.Depthlabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0)')
+        if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
+            self.Depthlabel.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0)')
         Big_layout.addWidget(self.Depthlabel,1,0)
         Big_layout.addWidget(self.profMaxSpinBox,1,1)
         Big_layout.addWidget(self.RunAnalysisBtn,1,2)
-        Big_layout.addWidget(self.DupeBtn,1,3)
-        Big_layout.addWidget(self.Run3dBtn,1,4)
+        Big_layout.addWidget(self.DupeBtn,1,4)
+        Big_layout.addWidget(self.Run3dBtn,1,3)
         Big_layout.addWidget(self.TabBox,2,0,1,5)
 
 
 
     def makeDupeTab(self):
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv"):
             os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv")
         rowIndex=0
@@ -140,7 +145,14 @@ class MainWindow(QWidget):
                 rowIndex+=1
         self.DupeTable.resizeColumnsToContents()
         self.TabBox.addTab(self.DupeTable, "Duplicates")
+        QApplication.restoreOverrideCursor()
+        for i in range(self.TabBox.count()):
+            if self.TabBox.tabText(i)== "Duplicates":
+                self.TabBox.setCurrentIndex(i)
     def makeCSVTab(self):
+        for i in range(self.TabBox.count()):
+            if self.TabBox.tabText(i)== "CSV":
+                self.TabBox.removeTab(i)
         rowIndex=0
         with open(self.selectCSV ,encoding='utf-8',newline='') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=',')
@@ -163,6 +175,7 @@ class MainWindow(QWidget):
         return TableLayout
     def plot3d(self):
         df = read_csv(self.selectCSV)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         x = f"{self.profMaxSpinBox.value()}"
         Lvl='path'+x
         size_per_folder_per_year = df.groupby([Lvl,'timestamp'], as_index=False)['Size'].sum()
@@ -184,7 +197,7 @@ class MainWindow(QWidget):
                 xvalue+=1
                 labels.append(lastpath+'    ')
                 indexX.append(xvalue)
-
+        
         labels.append("")
 
         #print(len(indexX))
@@ -198,13 +211,15 @@ class MainWindow(QWidget):
         plt.xticks(ticks=list(range(0,len(labels))),labels=labels,rotation=0, ha='right', rotation_mode='anchor')
         plt.yticks(dates,rotation=45, ha='right', rotation_mode='anchor')
         plt.show()
+        QApplication.restoreOverrideCursor()
     def makeHeatmapTab(self):
+
         if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv"):
             os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv")
         for i in range(self.TabBox.count()):
             if self.TabBox.tabText(i)== "Heatmap":
                 self.TabBox.removeTab(i)
-
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         x = self.profMaxSpinBox.value()+1
         subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}/data/xan.exe sort -s {x} -o '{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv' '{self.selectCSV}'"])
         self.sortedCSV = f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv"
@@ -282,7 +297,11 @@ class MainWindow(QWidget):
             colIndex=1
             rowIndex+=1
         self.HeatmapTable.resizeColumnsToContents()
+        QApplication.restoreOverrideCursor()
         self.TabBox.addTab(self.HeatmapTable, "Heatmap")
+        for i in range(self.TabBox.count()):
+            if self.TabBox.tabText(i)== "Heatmap":
+                self.TabBox.setCurrentIndex(i)
     def cellClickDupe(self,row,column):
         link = self.DupeTable.item(row,1).text().replace("/","\\")+"\\"+self.DupeTable.item(row,2).text()
         print(link)
@@ -293,12 +312,13 @@ class MainWindow(QWidget):
         os.startfile(fr"{link}")
     def changeOldBtn(self):
         if self.OldBtn.checkState() == Qt.Unchecked:
-            self.OldBtn.setText("Get all files")
+            self.OldBtn.setText("All files of all dates are kept (click to change)")
         if self.OldBtn.checkState() == Qt.PartiallyChecked:
-            self.OldBtn.setText("Get only files over 5 years old")
+            self.OldBtn.setText("Only files over 5 years old are kept (click to change)")
         if self.OldBtn.checkState() == Qt.Checked:
-            self.OldBtn.setText("Get only files over 10 years old")
+            self.OldBtn.setText("Only files over 10 years old are kept (click to change)")
     def GetItems(self):
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         commandList = ["powershell",
             "-NoProfile", 
             "-ExecutionPolicy", "Bypass", 
@@ -312,6 +332,7 @@ class MainWindow(QWidget):
             commandList.append("-plus10ans")     
 
         subprocess.run(commandList)
+        QApplication.restoreOverrideCursor()
         self.selectCSV = f"{os.path.dirname(os.path.realpath(__file__))}/data/output.csv"
         self.lineedit.setText(f"")
         self.updateLabel()
@@ -319,11 +340,16 @@ class MainWindow(QWidget):
         self.RunAnalysisBtn.setDisabled(0)
         self.DupeBtn.setDisabled(0)
     def makeTab(self):
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.CSVTable = self.makeCSVTab()
         for i in range(self.TabBox.count()):
             if self.TabBox.tabText(i)== "CSV":
                 self.TabBox.removeTab(i)
         self.TabBox.addTab(self.CSVTable, "CSV")
+        QApplication.restoreOverrideCursor()
+        for i in range(self.TabBox.count()):
+            if self.TabBox.tabText(i)== "CSV":
+                self.TabBox.setCurrentIndex(i)
     def updateLabel(self):
         self.CSVselectedLabel.setText(f"CSV File currently in use : {self.selectCSV}")
         with open(self.selectCSV, newline='',encoding='utf-8') as csvfile:
