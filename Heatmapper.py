@@ -306,8 +306,6 @@ class MainWindow(QWidget):
             "-fichier", f'{self.folderpath}',
             "-pathOutput", f"{os.path.dirname(os.path.realpath(__file__))}/data"]
 
-        if self.HashBtn.checkState() == Qt.Checked:
-            commandList.append("-hashing")
         if self.OldBtn.checkState() == Qt.PartiallyChecked:
             commandList.append("-plus5ans")
         if self.OldBtn.checkState() == Qt.Checked:
