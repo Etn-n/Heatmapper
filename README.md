@@ -13,3 +13,5 @@ Modules :<br>
 </ul>
 <br>
 To install them all : <code>pip install -r requirements.txt</code>
+
+<h2>You need to get XAN (https://github.com/medialab/xan) and put <code>xan.exe</code> in <code>./data/</code></h2>
