@@ -3,7 +3,7 @@ import os
 import sys
 import csv
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QSpinBox, QTabWidget, QCheckBox, QTableWidget, QTableWidgetItem, QApplication, QLineEdit, QWidget, QLabel, QGridLayout, QGroupBox, QPushButton, QFileDialog
+from PySide6.QtWidgets import QSpinBox, QTabWidget, QCheckBox, QTableWidget,QDialogButtonBox, QTableWidgetItem, QApplication, QLineEdit, QWidget, QLabel, QGridLayout, QGroupBox, QPushButton, QFileDialog
 from PySide6.QtGui import QIcon, QColor
 from pandas import read_csv
 import matplotlib.pyplot as plt
@@ -23,8 +23,13 @@ class MainWindow(QWidget):
         self.lineedit.setPlaceholderText("Select a Directory")
         self.lineedit.returnPressed.connect(self.GetItems)
         
+
+        self.BtnBox = QDialogButtonBox(orientation=Qt.Horizontal,centerButtons=True)
         self.OldBtn = QCheckBox(tristate=True,text="Get all files")
         self.OldBtn.clicked.connect(self.changeOldBtn)
+
+        self.BtnBox.addButton(self.OldBtn,QDialogButtonBox.YesRole)
+
         ##CSV File Select
         self.fileLineedit= QLineEdit()
         self.fileLineedit.setPlaceholderText("Select a CSV File")
@@ -64,7 +69,7 @@ class MainWindow(QWidget):
         self.DupeBtn.setDisabled(1)
         self.RunBtn.setDisabled(1)
         self.fileselectlayout.addWidget(self.lineedit,0,0,1,1)
-        self.fileselectlayout.addWidget(self.OldBtn,1,0,Qt.AlignmentFlag.AlignHCenter)
+        self.fileselectlayout.addWidget(self.BtnBox,1,0,Qt.AlignmentFlag.AlignHCenter)
         self.fileselectlayout.addWidget(self.fileLineedit,2,0,1,1)
         self.fileselectlayout.addWidget(self.dirselect,0,1)
         self.fileselectlayout.addWidget(self.CSVBtn,2,2)
@@ -104,9 +109,9 @@ class MainWindow(QWidget):
             os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv")
         rowIndex=0
         df = read_csv(self.selectCSV,index_col=False)
-        df = df[df.duplicated(['Hash'], keep=False)]
-        df = df.drop(df.columns[1:-4],axis=1)
-        Hash_index = df.columns.get_loc("Hash")
+        df = df[df.duplicated(['Name','Size'], keep=False)]
+        df = df.drop(df.columns[1:-3],axis=1)
+        Hash_index = df.columns.get_loc("Name")
         df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv", index=False)
         subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}/data/xan.exe sort -s {Hash_index} -o '{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv' '{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv'"])
         os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv")
@@ -120,14 +125,14 @@ class MainWindow(QWidget):
             csv_reader = csv.reader(csvfile, delimiter=',')
             headers = next(csv_reader)
             lines = sum(1 for line in csvfile)
-        self.DupeTable= QTableWidget(columnCount=5,rowCount=lines)
+        self.DupeTable= QTableWidget(columnCount=4,rowCount=lines)
         self.DupeTable.cellClicked.connect(self.cellClickDupe)
         self.DupeTable.setHorizontalHeaderLabels(headers)
         with open(csvDupe ,encoding='utf-8',newline='') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=',')
             next(csv_reader, None)
             for row in csv_reader:
-                for i in range(0,5):
+                for i in range(0,4):
                     item = QTableWidgetItem(f"{row[i]}")
                     item.setTextAlignment(Qt.AlignCenter)
                     item.setFlags(item.flags() ^ Qt.ItemIsEditable)
@@ -294,36 +299,21 @@ class MainWindow(QWidget):
         if self.OldBtn.checkState() == Qt.Checked:
             self.OldBtn.setText("Get only files over 10 years old")
     def GetItems(self):
-        if self.OldBtn.checkState() == Qt.Unchecked:
-            subprocess.run(
-        ["powershell",
-        "-NoProfile", 
-        "-ExecutionPolicy", "Bypass", 
-        "-File", f"{os.path.dirname(os.path.realpath(__file__))}/data/GetAllItems.ps1",
-        "-fichier", f'{self.folderpath}',
-        "-pathOutput", f"{os.path.dirname(os.path.realpath(__file__))}/data"]
-        )
+        commandList = ["powershell",
+            "-NoProfile", 
+            "-ExecutionPolicy", "Bypass", 
+            "-File", f"{os.path.dirname(os.path.realpath(__file__))}/data/GetAllItems.ps1",
+            "-fichier", f'{self.folderpath}',
+            "-pathOutput", f"{os.path.dirname(os.path.realpath(__file__))}/data"]
+
+        if self.HashBtn.checkState() == Qt.Checked:
+            commandList.append("-hashing")
         if self.OldBtn.checkState() == Qt.PartiallyChecked:
-            subprocess.run(
-        ["powershell",
-        "-NoProfile", 
-        "-ExecutionPolicy", "Bypass", 
-        "-File", f"{os.path.dirname(os.path.realpath(__file__))}/data/GetAllItems.ps1",
-        "-fichier", f'{self.folderpath}',
-        "-plus5ans",
-        "-pathOutput", f"{os.path.dirname(os.path.realpath(__file__))}/data"]
-        )
+            commandList.append("-plus5ans")
         if self.OldBtn.checkState() == Qt.Checked:
-            subprocess.run(
-        ["powershell",
-        "-NoProfile", 
-        "-ExecutionPolicy", "Bypass", 
-        "-File", f"{os.path.dirname(os.path.realpath(__file__))}/data/GetAllItems.ps1",
-        "-fichier", f'{self.folderpath}',
-        "-plus10ans",
-        "-pathOutput", f"{os.path.dirname(os.path.realpath(__file__))}/data"]
-        )
-        
+            commandList.append("-plus10ans")     
+
+        subprocess.run(commandList)
         self.selectCSV = f"{os.path.dirname(os.path.realpath(__file__))}/data/output.csv"
         self.lineedit.setText(f"")
         self.updateLabel()

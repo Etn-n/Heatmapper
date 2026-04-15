@@ -4,7 +4,7 @@ param(
     [int]$padding = 12, # le nombre de sous repertoires retenu lors de la creation du fichier de fichiers
   	[switch]$plus10ans,
   	[switch]$plus5ans,
-    [string]$pathOutput
+    [Parameter(Mandatory=$true)][string]$pathOutput
     )
 
           
@@ -39,7 +39,7 @@ $fieldSep = ','
   for($i=0;$i -lt $NumberLength;$i++){$NumberLengthString = $NumberLengthString + "0"}
 
 #Get longest path (not most characters but deepest path)
-    Write-Host "Calcul du chemin le plus long... (saisir -force pour eviter ce parcours) "
+    Write-Host "Calcul du chemin le plus long..."
     foreach ($file in $Files) {
       $fullname = $file.FullName
       $onlypath = Split-Path -Path "$fullname" -Parent
@@ -56,7 +56,6 @@ $fieldSep = ','
   foreach ($file in $Files) {
     $Year = $file.LastWriteTime.Year
     $fullname = $file.FullName;$onlypath = Split-Path -Path "$fullname" -Parent;
-	$hash = Get-FileHash $fullname
     #Separate the path (by \) in an array
     $pathArray = $onlypath -split "\\"
     $overallLength = $overallLength + $file.Length
@@ -67,7 +66,7 @@ $fieldSep = ','
     for($i=0;$i -lt $padding;$i++) {
         $details["path"+$i.ToString()] = $pathArray[0..$i] -join "/"
     }
-    $details["Name"] = $file;$detail["Hash"]=$hash;$details["Size"] = $file.Length
+    $details["Name"] = $file;$details["Size"] = $file.Length
     $results += New-Object PSObject -Property $details
     $percentDone = [math]::Round(100*$index/$NumberofFiles,2).ToString('00.00')
     $shortfilename = $file.Name[0..59] -join '';$indexpadded = $index.ToString($NumberLengthString) 
