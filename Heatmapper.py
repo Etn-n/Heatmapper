@@ -99,12 +99,26 @@ class MainWindow(QWidget):
         self.Depthlabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0)')
         if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
             self.Depthlabel.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0)')
+
+        self.SizeLabel=QLabel(text="No CSV currently in use",alignment=Qt.AlignLeft)
+        self.SizeLabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0);font-size:14px;font-weight:bold')
+        if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
+            self.SizeLabel.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0);font-size:14px;font-weight:bold')
+
+        self.DupeSizeLabel=QLabel(text="No Duplicates found",alignment=Qt.AlignRight)
+        self.DupeSizeLabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0);font-size:14px;font-weight:bold')
+        if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
+            self.DupeSizeLabel.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0);font-size:14px;font-weight:bold')
+
+
         Big_layout.addWidget(self.Depthlabel,1,0)
         Big_layout.addWidget(self.profMaxSpinBox,1,1)
         Big_layout.addWidget(self.RunAnalysisBtn,1,2)
         Big_layout.addWidget(self.DupeBtn,1,4)
         Big_layout.addWidget(self.Run3dBtn,1,3)
-        Big_layout.addWidget(self.TabBox,2,0,1,5)
+        Big_layout.addWidget(self.SizeLabel,2,0)
+        Big_layout.addWidget(self.DupeSizeLabel,2,4)
+        Big_layout.addWidget(self.TabBox,3,0,1,5)
 
 
 
@@ -114,6 +128,7 @@ class MainWindow(QWidget):
             os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv")
         rowIndex=0
         df = read_csv(self.selectCSV,index_col=False)
+        
         df = df[df.duplicated(['Name','Size'], keep=False)]
         df = df.drop(df.columns[1:-3],axis=1)
         Hash_index = df.columns.get_loc("Name")
@@ -121,6 +136,10 @@ class MainWindow(QWidget):
         subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}/data/xan.exe sort -s {Hash_index} -o '{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv' '{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv'"])
         os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv")
         csvDupe = f'{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv'
+        df2 = read_csv(csvDupe,index_col=False)
+        dupeSum = (df2['Size'].sum()/(1024**3))
+        dupeSumtxt = '{:05.2f}'.format(dupeSum)
+        relSize = int(100*dupeSum/self.SumSize)
 
         for i in range(self.TabBox.count()):
             if self.TabBox.tabText(i)== "Duplicates":
@@ -145,6 +164,7 @@ class MainWindow(QWidget):
                 rowIndex+=1
         self.DupeTable.resizeColumnsToContents()
         self.TabBox.addTab(self.DupeTable, "Duplicates")
+        self.DupeSizeLabel.setText(f"{dupeSumtxt} GB worth of non-unique files, {relSize}% of the overall size")
         QApplication.restoreOverrideCursor()
         for i in range(self.TabBox.count()):
             if self.TabBox.tabText(i)== "Duplicates":
@@ -339,6 +359,8 @@ class MainWindow(QWidget):
         self.Run3dBtn.setDisabled(0)
         self.RunAnalysisBtn.setDisabled(0)
         self.DupeBtn.setDisabled(0)
+        
+
     def makeTab(self):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.CSVTable = self.makeCSVTab()
@@ -351,6 +373,7 @@ class MainWindow(QWidget):
             if self.TabBox.tabText(i)== "CSV":
                 self.TabBox.setCurrentIndex(i)
     def updateLabel(self):
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.CSVselectedLabel.setText(f"CSV File currently in use : {self.selectCSV}")
         with open(self.selectCSV, newline='',encoding='utf-8') as csvfile:
             self.colNum = csvfile.readline().count(',')
@@ -361,6 +384,12 @@ class MainWindow(QWidget):
         self.profMaxSpinBox.setValue(0)
         self.TabBox.setDisabled(0)
         self.profMaxSpinBox.setMaximum(self.colNum-4)
+        df = read_csv(self.selectCSV,index_col=False)
+        self.SumSize = df['Size'].sum()/(1024**3)
+        SumSizetxt = '{:05.2f}'.format(self.SumSize)
+        print(SumSizetxt)
+        self.SizeLabel.setText(f"Overall Size : {SumSizetxt} GB ")
+        QApplication.restoreOverrideCursor()
     def open_file_dialog_Dossier(self):
         dialog = QFileDialog(self,"Choose a Folder")
         dialog.setFileMode(QFileDialog.FileMode.Directory)
