@@ -324,11 +324,11 @@ class MainWindow(QWidget):
                 self.TabBox.setCurrentIndex(i)
     def cellClickDupe(self,row,column):
         link = self.DupeTable.item(row,1).text().replace("/","\\")+"\\"+self.DupeTable.item(row,2).text()
-        print(link)
+        #print(link)
         subprocess.Popen(fr'explorer /select,"{link}"')
     def cellClick(self,row,column):
         link = self.HeatmapTable.item(row,0).text().replace("/","\\")
-        print(link)
+        #print(link)
         os.startfile(fr"{link}")
     def changeOldBtn(self):
         if self.OldBtn.checkState() == Qt.Unchecked:
@@ -387,7 +387,7 @@ class MainWindow(QWidget):
         df = read_csv(self.selectCSV,index_col=False)
         self.SumSize = df['Size'].sum()/(1024**3)
         SumSizetxt = '{:05.2f}'.format(self.SumSize)
-        print(SumSizetxt)
+        #print(SumSizetxt)
         self.SizeLabel.setText(f"Overall Size : {SumSizetxt} GB ")
         QApplication.restoreOverrideCursor()
     def open_file_dialog_Dossier(self):
