@@ -5,15 +5,17 @@ import csv
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSpinBox, QTabWidget, QCheckBox, QTableWidget,QDialogButtonBox, QTableWidgetItem, QApplication, QLineEdit, QWidget, QLabel, QGridLayout, QGroupBox, QPushButton, QFileDialog
 from PySide6.QtGui import QIcon, QColor, QGuiApplication
-from pandas import read_csv
+from pandas import read_csv,to_numeric
 import matplotlib.pyplot as plt
+import datetime
+
 
 class MainWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.resize(1000,800)
         self.setWindowTitle("Heatmapper")
-        self.setWindowIcon(QIcon(f"{os.path.dirname(os.path.realpath(__file__))}/data/icon.png"))
+        self.setWindowIcon(QIcon(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\icon.png"))
         Big_layout = QGridLayout()
         self.setLayout(Big_layout)
         self.fileselectWidget = QGroupBox("Select the Directory to search or File to analyse")
@@ -21,8 +23,7 @@ class MainWindow(QWidget):
         ##Dir Path Text Box + Options
         self.lineedit= QLineEdit()
         self.lineedit.setPlaceholderText("Select a Directory")
-        self.lineedit.returnPressed.connect(self.GetItems)
-        
+        self.year = int(datetime.date.today().year)
 
         self.BtnBox = QDialogButtonBox(orientation=Qt.Horizontal,centerButtons=True)
         self.OldBtn = QCheckBox(tristate=True,text="All files of all dates are kept (click to change)")
@@ -33,7 +34,6 @@ class MainWindow(QWidget):
         ##CSV File Select
         self.fileLineedit= QLineEdit()
         self.fileLineedit.setPlaceholderText("Select a CSV File")
-        self.fileLineedit.returnPressed.connect(self.GetItems)
 
         
         self.dirselect = QPushButton("Select Directory")
@@ -69,25 +69,20 @@ class MainWindow(QWidget):
         self.DupeBtn.setDisabled(1)
         self.RunBtn.setDisabled(1)
         self.fileselectlayout.addWidget(self.lineedit,0,0,1,1)
-        self.fileselectlayout.addWidget(self.BtnBox,1,0,Qt.AlignmentFlag.AlignHCenter)
-        self.fileselectlayout.addWidget(self.fileLineedit,2,0,1,1)
+        self.fileselectlayout.addWidget(self.BtnBox,2,0,Qt.AlignmentFlag.AlignHCenter)
+        self.fileselectlayout.addWidget(self.fileLineedit,1,0,1,1)
         self.fileselectlayout.addWidget(self.dirselect,0,1)
-        self.fileselectlayout.addWidget(self.CSVBtn,2,2)
-        self.fileselectlayout.addWidget(self.fileselect,2,1)
+        self.fileselectlayout.addWidget(self.CSVBtn,1,2)
+        self.fileselectlayout.addWidget(self.fileselect,1,1)
         self.fileselectlayout.addWidget(self.RunBtn,0,2)
         
         self.fileselectWidget.setLayout(self.fileselectlayout)
-        self.CSVselectedLabel= QLineEdit(text="CSV File currently in use : none",readOnly=True,alignment=Qt.AlignmentFlag.AlignCenter,frame=False)
-        self.CSVselectedLabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0)')
-        if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
-            self.CSVselectedLabel.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0)')
-        self.fileselectlayout.addWidget(self.CSVselectedLabel,3,0,1,3)
         Big_layout.addWidget(self.fileselectWidget,0,0,1,5)
 
 
         
 
-        self.profMaxSpinBox = QSpinBox(minimum=0)
+        self.profMaxSpinBox = QSpinBox(minimum=1)
         self.profMaxSpinBox.setDisabled(1)
         self.profMaxSpinBox.setToolTip("Select the depth at which to look for")
         self.TabBox = QTabWidget()
@@ -105,6 +100,17 @@ class MainWindow(QWidget):
         if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
             self.SizeLabel.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0);font-size:14px;font-weight:bold')
 
+        self.SizeLabelTen=QLabel(text="--",alignment=Qt.AlignCenter)
+        self.SizeLabelTen.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0);font-size:11px')
+        if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
+            self.SizeLabelTen.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0);font-size:11px')
+        
+        self.SizeLabelFive=QLabel(text="--",alignment=Qt.AlignCenter)
+        self.SizeLabelFive.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0);font-size:11px')
+        if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
+            self.SizeLabelFive.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0);font-size:11px')
+
+
         self.DupeSizeLabel=QLabel(text="No Duplicates found",alignment=Qt.AlignRight)
         self.DupeSizeLabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0);font-size:14px;font-weight:bold')
         if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
@@ -117,33 +123,37 @@ class MainWindow(QWidget):
         Big_layout.addWidget(self.DupeBtn,1,4)
         Big_layout.addWidget(self.Run3dBtn,1,3)
         Big_layout.addWidget(self.SizeLabel,2,0)
-        Big_layout.addWidget(self.DupeSizeLabel,2,4)
+        Big_layout.addWidget(self.SizeLabelFive,2,1)
+        Big_layout.addWidget(self.SizeLabelTen,2,2)
+        Big_layout.addWidget(self.DupeSizeLabel,2,3,1,2)
         Big_layout.addWidget(self.TabBox,3,0,1,5)
 
 
 
     def makeDupeTab(self):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv"):
-            os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv")
+        if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempdupesorted.csv"):
+            os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempdupesorted.csv")
         rowIndex=0
         df = read_csv(self.selectCSV,index_col=False)
-        
-        df = df[df.duplicated(['Name','Size'], keep=False)]
+        df["timestamp"] = to_numeric(df["timestamp"])
+        df = df[df.duplicated(['timestamp','Name','Size'], keep=False)]
         df = df.drop(df.columns[1:-3],axis=1)
+        if self.OldBtn.checkState() == Qt.Checked:
+            df = df[df["timestamp"] < (self.year-10)]
+        if self.OldBtn.checkState() == Qt.PartiallyChecked:
+            df = df[df["timestamp"] < (self.year-5)]
         Hash_index = df.columns.get_loc("Name")
-        df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv", index=False)
-        subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}/data/xan.exe sort -s {Hash_index} -o '{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv' '{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv'"])
-        os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempdupe.csv")
-        csvDupe = f'{os.path.dirname(os.path.realpath(__file__))}/data/tempdupesorted.csv'
+        df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempdupe.csv", index=False)
+        subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}\\data\\xan.exe sort -s {Hash_index} -o '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempdupesorted.csv' '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempdupe.csv'"])
+        os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempdupe.csv")
+        csvDupe = f'{os.path.dirname(os.path.realpath(__file__))}\\data\\tempdupesorted.csv'
         df2 = read_csv(csvDupe,index_col=False)
         dupeSum = (df2['Size'].sum()/(1024**3))
         dupeSumtxt = '{:05.2f}'.format(dupeSum)
         relSize = int(100*dupeSum/self.SumSize)
 
-        for i in range(self.TabBox.count()):
-            if self.TabBox.tabText(i)== "Duplicates":
-                self.TabBox.removeTab(i)
+        self.TabBox.removeTab(2)
 
         with open(csvDupe ,encoding='utf-8',newline='') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=',')
@@ -163,21 +173,49 @@ class MainWindow(QWidget):
                     self.DupeTable.setItem(rowIndex,i,item)
                 rowIndex+=1
         self.DupeTable.resizeColumnsToContents()
-        self.TabBox.addTab(self.DupeTable, "Duplicates")
-        self.DupeSizeLabel.setText(f"{dupeSumtxt} GB worth of non-unique files, {relSize}% of the overall size")
+        self.TabBox.insertTab(2,self.DupeTable, "Duplicates")
+        self.DupeSizeLabel.setText(f"{dupeSumtxt} GB of non-unique files, {relSize}% of the overall size")
         QApplication.restoreOverrideCursor()
-        for i in range(self.TabBox.count()):
-            if self.TabBox.tabText(i)== "Duplicates":
-                self.TabBox.setCurrentIndex(i)
-    def makeCSVTab(self):
-        for i in range(self.TabBox.count()):
-            if self.TabBox.tabText(i)== "CSV":
-                self.TabBox.removeTab(i)
+        self.TabBox.setCurrentIndex(2)
+    
+    def makeCSVTab(self): 
+        rowIndex=0
+        df = read_csv(self.selectCSV,index_col=False)
+        df["timestamp"] = to_numeric(df["timestamp"])
+        if self.OldBtn.checkState() == Qt.Checked:
+            df = df[df["timestamp"] < (self.year-10)]
+        if self.OldBtn.checkState() == Qt.PartiallyChecked:
+            df = df[df["timestamp"] < (self.year-5)]
+        df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempShow.csv", index=False)
+        CSV = f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempShow.csv"
+        with open(CSV ,encoding='utf-8',newline='') as csvfile:
+            csv_reader = csv.reader(csvfile, delimiter=',')
+            self.headers = next(csv_reader)
+        TableLayout= QTableWidget(columnCount=self.colNum+1,rowCount=self.lines)
+        TableLayout.setHorizontalHeaderLabels(self.headers)
+        
+        for i in range(0,self.colNum+1):
+            with open(CSV ,encoding='utf-8',newline='') as csvfile:
+                csv_reader = csv.reader(csvfile, delimiter=',')
+                rowIndex=0
+                next(csv_reader, None)
+                for row in csv_reader:
+                    item = QTableWidgetItem(f"{row[i]}")
+                    item.setTextAlignment(Qt.AlignCenter)
+                    item.setFlags(item.flags() ^ Qt.ItemIsEditable)
+                    TableLayout.setItem(rowIndex,i,item)
+                    rowIndex+=1
+        TableLayout.resizeColumnsToContents()
+        os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempShow.csv")
+        return TableLayout
+        
+    def MakeLittleCSV(self):
+        self.TabBox.removeTab(0)
         rowIndex=0
         with open(self.selectCSV ,encoding='utf-8',newline='') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=',')
             self.headers = next(csv_reader)
-        TableLayout= QTableWidget(columnCount=self.colNum+1,rowCount=self.lines)
+        TableLayout= QTableWidget(columnCount=self.colNum+1,rowCount=30)
         TableLayout.setHorizontalHeaderLabels(self.headers)
         
         for i in range(0,self.colNum+1):
@@ -191,12 +229,24 @@ class MainWindow(QWidget):
                     item.setFlags(item.flags() ^ Qt.ItemIsEditable)
                     TableLayout.setItem(rowIndex,i,item)
                     rowIndex+=1
+                    if rowIndex == 30 :
+                        break
         TableLayout.resizeColumnsToContents()
-        return TableLayout
+        #os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempShow.csv")
+        self.TabBox.insertTab(0, TableLayout, "CSV (Preview)")
+        self.TabBox.setCurrentIndex(0)
+        
+
+        
     def plot3d(self):
         df = read_csv(self.selectCSV)
+        df["timestamp"] = to_numeric(df["timestamp"])
+        if self.OldBtn.checkState() == Qt.Checked:
+            df = df[df["timestamp"] < (self.year-10)]
+        if self.OldBtn.checkState() == Qt.PartiallyChecked:
+            df = df[df["timestamp"] < (self.year-5)]
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        x = f"{self.profMaxSpinBox.value()}"
+        x = f"{self.profMaxSpinBox.value()-1}"
         Lvl='path'+x
         size_per_folder_per_year = df.groupby([Lvl,'timestamp'], as_index=False)['Size'].sum()
         #print(size_per_folder_per_year[Lvl].count())
@@ -232,17 +282,26 @@ class MainWindow(QWidget):
         plt.yticks(dates,rotation=45, ha='right', rotation_mode='anchor')
         plt.show()
         QApplication.restoreOverrideCursor()
+
     def makeHeatmapTab(self):
 
-        if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv"):
-            os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv")
-        for i in range(self.TabBox.count()):
-            if self.TabBox.tabText(i)== "Heatmap":
-                self.TabBox.removeTab(i)
+        if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv"):
+            os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv")
+        self.TabBox.removeTab(1)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        x = self.profMaxSpinBox.value()+1
-        subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}/data/xan.exe sort -s {x} -o '{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv' '{self.selectCSV}'"])
-        self.sortedCSV = f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv"
+        x = self.profMaxSpinBox.value()
+        subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}\\data\\xan.exe sort -s {x} -o '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv' '{self.selectCSV}'"])
+        
+        df = read_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv",index_col=False)
+        df["timestamp"] = to_numeric(df["timestamp"])
+        if self.OldBtn.checkState() == Qt.Checked:
+            df = df[df["timestamp"] < (self.year-10)]
+        if self.OldBtn.checkState() == Qt.PartiallyChecked:
+            df = df[df["timestamp"] < (self.year-5)]
+        df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv", index=False)
+
+        self.sortedCSV = f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv"
+
         with open(self.sortedCSV, newline='',encoding='utf-8') as csvfile:
             next(csvfile)
             self.fullweight = sum(int(r[-1]) for r in csv.reader(csvfile))
@@ -267,7 +326,7 @@ class MainWindow(QWidget):
                     self.name = row[x]
                     self.BigList[self.name] = []
             self.BigList[self.name].append((self.annee,self.mass))
-        os.remove(f"{os.path.dirname(os.path.realpath(__file__))}/data/tempsort.csv")
+        os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv")
 
         rec = read_csv(self.selectCSV)
         uniqueTime = (rec['timestamp'].unique()).tolist()
@@ -318,10 +377,9 @@ class MainWindow(QWidget):
             rowIndex+=1
         self.HeatmapTable.resizeColumnsToContents()
         QApplication.restoreOverrideCursor()
-        self.TabBox.addTab(self.HeatmapTable, "Heatmap")
-        for i in range(self.TabBox.count()):
-            if self.TabBox.tabText(i)== "Heatmap":
-                self.TabBox.setCurrentIndex(i)
+        self.TabBox.insertTab(1,self.HeatmapTable, "Heatmap")
+        self.TabBox.setCurrentIndex(1)
+    
     def cellClickDupe(self,row,column):
         link = self.DupeTable.item(row,1).text().replace("/","\\")+"\\"+self.DupeTable.item(row,2).text()
         #print(link)
@@ -342,9 +400,9 @@ class MainWindow(QWidget):
         commandList = ["powershell",
             "-NoProfile", 
             "-ExecutionPolicy", "Bypass", 
-            "-File", f"{os.path.dirname(os.path.realpath(__file__))}/data/GetAllItems.ps1",
+            "-File", f"{os.path.dirname(os.path.realpath(__file__))}\\data\\GetAllItems.ps1",
             "-fichier", f'{self.folderpath}',
-            "-pathOutput", f"{os.path.dirname(os.path.realpath(__file__))}/data"]
+            "-pathOutput", f"{os.path.dirname(os.path.realpath(__file__))}\\data"]
 
         if self.OldBtn.checkState() == Qt.PartiallyChecked:
             commandList.append("-plus5ans")
@@ -352,43 +410,60 @@ class MainWindow(QWidget):
             commandList.append("-plus10ans")     
 
         subprocess.run(commandList)
-        QApplication.restoreOverrideCursor()
-        self.selectCSV = f"{os.path.dirname(os.path.realpath(__file__))}/data/output.csv"
-        self.lineedit.setText(f"")
-        self.updateLabel()
+        self.selectCSV = f"{os.path.dirname(os.path.realpath(__file__))}\\data\\output.csv"
+        #self.lineedit.setText(f"")
         self.Run3dBtn.setDisabled(0)
         self.RunAnalysisBtn.setDisabled(0)
         self.DupeBtn.setDisabled(0)
-        
+        for i in range(0,self.TabBox.count()):
+            self.TabBox.removeTab(i)
+        self.updateLabel()
+        QApplication.restoreOverrideCursor()
 
     def makeTab(self):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.CSVTable = self.makeCSVTab()
-        for i in range(self.TabBox.count()):
-            if self.TabBox.tabText(i)== "CSV":
-                self.TabBox.removeTab(i)
-        self.TabBox.addTab(self.CSVTable, "CSV")
+        self.TabBox.removeTab(0)
+        self.TabBox.insertTab(0,self.CSVTable, "CSV")
         QApplication.restoreOverrideCursor()
-        for i in range(self.TabBox.count()):
-            if self.TabBox.tabText(i)== "CSV":
-                self.TabBox.setCurrentIndex(i)
+        self.TabBox.setCurrentIndex(0)
+
     def updateLabel(self):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        self.CSVselectedLabel.setText(f"CSV File currently in use : {self.selectCSV}")
+        self.fileLineedit.setText(f"{self.selectCSV}")
         with open(self.selectCSV, newline='',encoding='utf-8') as csvfile:
             self.colNum = csvfile.readline().count(',')
             self.lines = sum(1 for line in csvfile)
             #print("colonnes:",self.colNum," path depth :",self.colNum-4)
             #print("lignes:",self.lines)
         self.profMaxSpinBox.setDisabled(0)
-        self.profMaxSpinBox.setValue(0)
+        self.profMaxSpinBox.setValue(1)
         self.TabBox.setDisabled(0)
-        self.profMaxSpinBox.setMaximum(self.colNum-4)
+        self.profMaxSpinBox.setMaximum(self.colNum-3)
+        
         df = read_csv(self.selectCSV,index_col=False)
+        df["timestamp"] = to_numeric(df["timestamp"])
+
+        dften = df[df["timestamp"] < (self.year-10)]
+        dffive = df[df["timestamp"] < (self.year-5)]
+
         self.SumSize = df['Size'].sum()/(1024**3)
         SumSizetxt = '{:05.2f}'.format(self.SumSize)
+
+        self.SumSizeTen = dften['Size'].sum()/(1024**3)
+        SumSizetxtTen = '{:05.2f}'.format(self.SumSizeTen)
+
+        self.SumSizeFive = dffive['Size'].sum()/(1024**3)
+        SumSizetxtFive = '{:05.2f}'.format(self.SumSizeFive)
         #print(SumSizetxt)
+        self.SizeLabelFive.setText(f"Files over 5 Y/O : {SumSizetxtFive} GB ")
+        self.SizeLabelTen.setText(f"Files over 10 Y/O : {SumSizetxtTen} GB ")
         self.SizeLabel.setText(f"Overall Size : {SumSizetxt} GB ")
+
+        self.MakeLittleCSV()
+        PlaceHolder,PlaceHolder2 = QWidget(),QWidget()
+        self.TabBox.insertTab(1,PlaceHolder,"Heatmap")
+        self.TabBox.insertTab(2,PlaceHolder2,"Duplicates")
         QApplication.restoreOverrideCursor()
     def open_file_dialog_Dossier(self):
         dialog = QFileDialog(self,"Choose a Folder")
@@ -398,8 +473,9 @@ class MainWindow(QWidget):
         if dialog.exec():
             self.folderpath = dialog.selectedFiles()[0]
             self.lineedit.setText(f"{self.folderpath}")
-            print(self.folderpath)
+            #print(self.folderpath)
             self.RunBtn.setDisabled(0)
+            self.GetItems()
     def open_file_dialog_File(self):
         dialog = QFileDialog(self,"Choose a Folder")
         dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
@@ -407,12 +483,15 @@ class MainWindow(QWidget):
         dialog.setViewMode(QFileDialog.ViewMode.List)
         if dialog.exec():
             self.selectCSV = dialog.selectedFiles()[0]
-            self.fileLineedit.setText("")
-            self.updateLabel()
-            print(self.selectCSV)
+            #print(self.selectCSV)
             self.Run3dBtn.setDisabled(0)
             self.RunAnalysisBtn.setDisabled(0)
             self.DupeBtn.setDisabled(0)
+            print(self.TabBox.count())
+            for i in range(0,self.TabBox.count()):
+                print(i,self.TabBox.tabText(i))
+                self.TabBox.removeTab(i)
+            self.updateLabel()
 
 
 if __name__ == "__main__":
