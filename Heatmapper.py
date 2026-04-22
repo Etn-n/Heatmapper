@@ -60,7 +60,7 @@ class MainWindow(QWidget):
         self.RunAnalysisBtn = QPushButton("Run Heatmap")
         self.RunAnalysisBtn.setFocusPolicy(Qt.NoFocus)
         self.RunAnalysisBtn.setDefault(True)
-        self.RunAnalysisBtn.clicked.connect(self.makeHeatmapTab)
+        self.RunAnalysisBtn.clicked.connect(self.makeHeatmap)
         self.RunAnalysisBtn.setDisabled(1)
         self.DupeBtn = QPushButton("Run Dupe Detection")
         self.DupeBtn.setFocusPolicy(Qt.NoFocus)
@@ -127,7 +127,6 @@ class MainWindow(QWidget):
         Big_layout.addWidget(self.SizeLabelTen,2,2)
         Big_layout.addWidget(self.DupeSizeLabel,2,3,1,2)
         Big_layout.addWidget(self.TabBox,3,0,1,5)
-
 
 
     def makeDupeTab(self):
@@ -282,15 +281,17 @@ class MainWindow(QWidget):
         plt.yticks(dates,rotation=45, ha='right', rotation_mode='anchor')
         plt.show()
         QApplication.restoreOverrideCursor()
-
-    def makeHeatmapTab(self):
+    def makeHeatmap(self):
+        x = self.selectCSV
+        self.makeHeatmapTab(x)
+    def makeHeatmapTab(self, csvInput):
 
         if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv"):
             os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv")
         self.TabBox.removeTab(1)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         x = self.profMaxSpinBox.value()
-        subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}\\data\\xan.exe sort -s {x} -o '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv' '{self.selectCSV}'"])
+        subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}\\data\\xan.exe sort -s {x} -o '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv' '{csvInput}'"])
         
         df = read_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv",index_col=False)
         df["timestamp"] = to_numeric(df["timestamp"])
@@ -326,7 +327,7 @@ class MainWindow(QWidget):
                     self.name = row[x]
                     self.BigList[self.name] = []
             self.BigList[self.name].append((self.annee,self.mass))
-        os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv")
+        #os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv")
 
         rec = read_csv(self.selectCSV)
         uniqueTime = (rec['timestamp'].unique()).tolist()
@@ -385,9 +386,16 @@ class MainWindow(QWidget):
         #print(link)
         subprocess.Popen(fr'explorer /select,"{link}"')
     def cellClick(self,row,column):
-        link = self.HeatmapTable.item(row,0).text().replace("/","\\")
-        #print(link)
-        os.startfile(fr"{link}")
+        link = self.HeatmapTable.item(row,0).text()
+        #Bprint(link)
+        #os.startfile(fr"{link}")
+        df = read_csv(self.sortedCSV,index_col=False)
+        x = self.profMaxSpinBox.value()
+        col = "path"+str(x)
+        df = df.loc[df[col].str.contains(link)]
+        df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv", index=False)
+        self.profMaxSpinBox.setValue(x+1)
+        self.makeHeatmapTab(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv")
     def changeOldBtn(self):
         if self.OldBtn.checkState() == Qt.Unchecked:
             self.OldBtn.setText("All files of all dates are kept (click to change)")
