@@ -409,6 +409,7 @@ class MainWindow(QWidget):
         df = df.loc[df[col].str.contains(link)]
         df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv", index=False)
         self.profMaxSpinBox.setValue(x+1)
+        subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}\\data\\xan.exe sort -s {x+1} -o '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv' '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv'"])
         self.makeHeatmapTab(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv")
         QApplication.restoreOverrideCursor()
     def goBack(self):
