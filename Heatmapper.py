@@ -24,7 +24,7 @@ class MainWindow(QWidget):
         self.lineedit= QLineEdit()
         self.lineedit.setPlaceholderText("Select a Directory")
         self.year = int(datetime.date.today().year)
-
+        self.oldLink = []
         self.BtnBox = QDialogButtonBox(orientation=Qt.Horizontal,centerButtons=True)
         self.OldBtn = QCheckBox(tristate=True,text="All files of all dates are kept (click to change)")
         self.OldBtn.clicked.connect(self.changeOldBtn)
@@ -116,6 +116,11 @@ class MainWindow(QWidget):
         if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Light :
             self.DupeSizeLabel.setStyleSheet('color : blue;padding:2px;background-color:rgba(0,0,0,0);font-size:14px;font-weight:bold')
 
+        self.goBackBtn = QPushButton("Go Back")
+        self.goBackBtn.setFocusPolicy(Qt.NoFocus)
+        self.goBackBtn.setDefault(True)
+        self.goBackBtn.clicked.connect(self.goBack)
+        self.goBackBtn.setDisabled(1)
 
         Big_layout.addWidget(self.Depthlabel,1,0)
         Big_layout.addWidget(self.profMaxSpinBox,1,1)
@@ -127,6 +132,7 @@ class MainWindow(QWidget):
         Big_layout.addWidget(self.SizeLabelTen,2,2)
         Big_layout.addWidget(self.DupeSizeLabel,2,3,1,2)
         Big_layout.addWidget(self.TabBox,3,0,1,5)
+        Big_layout.addWidget(self.goBackBtn,4,4)
 
 
     def makeDupeTab(self):
@@ -283,35 +289,40 @@ class MainWindow(QWidget):
         QApplication.restoreOverrideCursor()
     def makeHeatmap(self):
         x = self.selectCSV
+        self.sorted = False
         self.makeHeatmapTab(x)
+        self.goBackBtn.setDisabled(0)
     def makeHeatmapTab(self, csvInput):
 
-        if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv"):
-            os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv")
+        #if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv"):
+        #    os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv")
         self.TabBox.removeTab(1)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         x = self.profMaxSpinBox.value()
-        subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}\\data\\xan.exe sort -s {x} -o '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv' '{csvInput}'"])
-        
-        df = read_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv",index_col=False)
-        df["timestamp"] = to_numeric(df["timestamp"])
-        if self.OldBtn.checkState() == Qt.Checked:
-            df = df[df["timestamp"] < (self.year-10)]
-        if self.OldBtn.checkState() == Qt.PartiallyChecked:
-            df = df[df["timestamp"] < (self.year-5)]
-        df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv", index=False)
+        if self.sorted != True :
+            subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}\\data\\xan.exe sort -s {x} -o '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv' '{csvInput}'"])
+            df = read_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv",index_col=False)
+            df["timestamp"] = to_numeric(df["timestamp"])
+            if self.OldBtn.checkState() == Qt.Checked:
+                df = df[df["timestamp"] < (self.year-10)]
+            if self.OldBtn.checkState() == Qt.PartiallyChecked:
+                df = df[df["timestamp"] < (self.year-5)]
+            df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv", index=False)
+            print("Sorting...")
+            self.sortedCSV = f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv"
+            csvInput = self.sortedCSV
+            self.sorted = True
 
-        self.sortedCSV = f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv"
 
-        with open(self.sortedCSV, newline='',encoding='utf-8') as csvfile:
+        with open(csvInput, newline='',encoding='utf-8') as csvfile:
             next(csvfile)
             self.fullweight = sum(int(r[-1]) for r in csv.reader(csvfile))
         #print(self.fullweight)
         self.BigList = {}
-        self.name=""
+        self.name = ""
         self.annee = 0
-        self.mass=0
-        with open(self.sortedCSV, newline='',encoding='utf-8') as csvfile:
+        self.mass = 0
+        with open(csvInput, newline='',encoding='utf-8') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=',')
             next(csv_reader, None)
             for row in csv_reader:
@@ -386,7 +397,10 @@ class MainWindow(QWidget):
         #print(link)
         subprocess.Popen(fr'explorer /select,"{link}"')
     def cellClick(self,row,column):
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         link = self.HeatmapTable.item(row,0).text()
+        linkList = link.split("/")[:-1]
+        self.oldLink.append("/".join(linkList))
         #Bprint(link)
         #os.startfile(fr"{link}")
         df = read_csv(self.sortedCSV,index_col=False)
@@ -396,6 +410,23 @@ class MainWindow(QWidget):
         df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv", index=False)
         self.profMaxSpinBox.setValue(x+1)
         self.makeHeatmapTab(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv")
+        QApplication.restoreOverrideCursor()
+    def goBack(self):
+        if self.oldLink == []:
+            return
+        else :
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            link = self.oldLink[-1]
+            print(link)
+            self.oldLink.pop(-1)
+            df = read_csv(self.sortedCSV,index_col=False)
+            x = self.profMaxSpinBox.value()
+            col = "path"+str(x)
+            df = df.loc[df[col].str.contains(link)]
+            df.to_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv", index=False)
+            self.profMaxSpinBox.setValue(x-1)
+            self.makeHeatmapTab(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsortedfurther.csv")
+            QApplication.restoreOverrideCursor()
     def changeOldBtn(self):
         if self.OldBtn.checkState() == Qt.Unchecked:
             self.OldBtn.setText("All files of all dates are kept (click to change)")
