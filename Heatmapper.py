@@ -300,7 +300,7 @@ class MainWindow(QWidget):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         x = self.profMaxSpinBox.value()
         if self.sorted != True :
-            subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}\\data\\xan.exe sort -s {x} -o '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv' '{csvInput}'"])
+            subprocess.run(["powershell","-Command",f"{os.path.dirname(os.path.realpath(__file__))}\\data\\xan.exe sort -s {x+1} -o '{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv' '{csvInput}'"])
             df = read_csv(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempsort.csv",index_col=False)
             df["timestamp"] = to_numeric(df["timestamp"])
             if self.OldBtn.checkState() == Qt.Checked:
