@@ -12,9 +12,60 @@ import trio
 import outcome
 import signal
 import traceback
+import win32pipe
+import win32file
+import pywintypes
 
 
+class PipeServer():
+    def __init__(self) : 
+        self.PIPE_NAME = r'\\.\pipe\hmp_pipe'
+        self.ipc_message=""
 
+    def handle_message(self) -> str:
+    # Example processing logic
+        return f"[PYTHON RECEIVED]: {self.ipc_message}"
+
+    def start_pipe_server(self):
+        print("Starting Python Named Pipe Server...")
+
+        pipe = win32pipe.CreateNamedPipe(
+            self.PIPE_NAME,
+            win32pipe.PIPE_ACCESS_DUPLEX,
+            win32pipe.PIPE_TYPE_MESSAGE |
+            win32pipe.PIPE_READMODE_MESSAGE |
+            win32pipe.PIPE_WAIT,
+            1,          # max instances
+            65536,      # out buffer
+            65536,      # in buffer
+            0,
+            None
+        )
+
+        print("Waiting for client connection...")
+        win32pipe.ConnectNamedPipe(pipe, None)
+        print("Client connected.")
+
+        try:
+            while True:
+                result, data = win32file.ReadFile(pipe, 65536)
+                ipc_message = data.decode("utf-8")
+
+                print(f"Received: {ipc_message}")
+
+                response = self.handle_message()
+
+                win32file.WriteFile(
+                    pipe,
+                    response.encode("utf-8")
+                )
+
+        except pywintypes.error as e:
+            print("Pipe error:", e)
+
+        finally:
+            win32file.CloseHandle(pipe)
+            print("Pipe closed.")
 
 class AsyncHelper(QObject):
 
@@ -75,19 +126,16 @@ class AsyncHelper(QObject):
 class MainWindow(QWidget):
     start_signal = Signal()
     
-    PIPE_NAME = r'\\.\pipe\hmp_pipe'
-    ipc_message=""
-    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.resize(1000,800)
         self.setWindowTitle("Heatmapper")
-        self.binPath = f"{os.path.dirname(os.path.realpath(__file__))}\\bin"
+        self.binPath = f"{os.path.dirname(os.path.realpath(__file__))}/bin"
         self.xanPath = self.binPath
-        self.dataPath = f"{os.path.dirname(os.path.realpath(__file__))}\\data"
+        self.dataPath = f"{os.path.dirname(os.path.realpath(__file__))}/data"
         if os.path.exists(f"{self.dataPath}") == False:
             os.mkdir(f"{self.dataPath}")
-        self.setWindowIcon(QIcon(f"{self.binPath}\\icon.png"))
+        self.setWindowIcon(QIcon(f"{self.binPath}/icon.png"))
         Big_layout = QGridLayout()
         self.setLayout(Big_layout)
         self.fileselectWidget = QGroupBox("Select the Directory to search or File to analyse")
@@ -151,16 +199,12 @@ class MainWindow(QWidget):
         self.fileselectWidget.setLayout(self.fileselectlayout)
         Big_layout.addWidget(self.fileselectWidget,0,0,1,5)
 
-
-        
-
         self.profMaxSpinBox = QSpinBox(minimum=1)
         self.profMaxSpinBox.setDisabled(1)
         self.profMaxSpinBox.setToolTip("Select the depth at which to look for")
         self.TabBox = QTabWidget()
         self.TabBox.setDisabled(1)
         self.OutputTab = QTableWidget()
-        
         
         self.Depthlabel=QLabel(text="Select Depth to analyse :")
         self.Depthlabel.setStyleSheet('color : lime;padding:2px;background-color:rgba(0,0,0,0)')
@@ -208,8 +252,8 @@ class MainWindow(QWidget):
 
     def makeDupeTab(self):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        if os.path.exists(f"{self.dataPath}\\tempdupesorted.csv"):
-            os.remove(f"{self.dataPath}\\tempdupesorted.csv")
+        if os.path.exists(f"{self.dataPath}/tempdupesorted.csv"):
+            os.remove(f"{self.dataPath}/tempdupesorted.csv")
         rowIndex=0
         df = read_csv(self.selectCSV,index_col=False)
         df["timestamp"] = to_numeric(df["timestamp"])
@@ -220,10 +264,10 @@ class MainWindow(QWidget):
         if self.OldBtn.checkState() == Qt.PartiallyChecked:
             df = df[df["timestamp"] < (self.year-5)]
         Hash_index = df.columns.get_loc("Name")
-        df.to_csv(f"{self.dataPath}\\tempdupe.csv", index=False)
-        subprocess.run(["powershell","-Command",f"{self.binPath}\\xan.exe sort -s {Hash_index} -o '{self.dataPath}\\tempdupesorted.csv' '{self.dataPath}\\tempdupe.csv'"])
-        os.remove(f"{self.dataPath}\\tempdupe.csv")
-        csvDupe = f'{self.dataPath}\\tempdupesorted.csv'
+        df.to_csv(f"{self.dataPath}/tempdupe.csv", index=False)
+        subprocess.run(["powershell","-Command",f"{self.binPath}/xan.exe sort -s {Hash_index} -o '{self.dataPath}/tempdupesorted.csv' '{self.dataPath}/tempdupe.csv'"])
+        os.remove(f"{self.dataPath}/tempdupe.csv")
+        csvDupe = f'{self.dataPath}/tempdupesorted.csv'
         df2 = read_csv(csvDupe,index_col=False)
         dupeSum = (df2['Size'].sum()/(1024**3))
         dupeSumtxt = '{:05.2f}'.format(dupeSum)
@@ -262,8 +306,8 @@ class MainWindow(QWidget):
             df = df[df["timestamp"] < (self.year-10)]
         if self.OldBtn.checkState() == Qt.PartiallyChecked:
             df = df[df["timestamp"] < (self.year-5)]
-        df.to_csv(f"{self.dataPath}\\tempShow.csv", index=False)
-        CSV = f"{self.dataPath}\\tempShow.csv"
+        df.to_csv(f"{self.dataPath}/tempShow.csv", index=False)
+        CSV = f"{self.dataPath}/tempShow.csv"
         with open(CSV ,encoding='utf-8',newline='') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=',')
             self.headers = next(csv_reader)
@@ -282,7 +326,7 @@ class MainWindow(QWidget):
                     TableLayout.setItem(rowIndex,i,item)
                     rowIndex+=1
         TableLayout.resizeColumnsToContents()
-        os.remove(f"{self.dataPath}\\tempShow.csv")
+        os.remove(f"{self.dataPath}/tempShow.csv")
         return TableLayout
         
     def MakeLittleCSV(self):
@@ -308,7 +352,7 @@ class MainWindow(QWidget):
                     if rowIndex == 30 :
                         break
         TableLayout.resizeColumnsToContents()
-        #os.remove(f"{self.dataPath}\\tempShow.csv")
+        #os.remove(f"{self.dataPath}/tempShow.csv")
         self.TabBox.insertTab(0, TableLayout, "CSV (Preview)")
         self.TabBox.setCurrentIndex(0)
           
@@ -363,22 +407,22 @@ class MainWindow(QWidget):
         self.goBackBtn.setDisabled(0)
     def makeHeatmapTab(self, csvInput):
 
-        #if os.path.exists(f"{self.dataPath}\\tempsort.csv"):
-        #    os.remove(f"{self.dataPath}\\tempsort.csv")
+        #if os.path.exists(f"{self.dataPath}/tempsort.csv"):
+        #    os.remove(f"{self.dataPath}/tempsort.csv")
         self.TabBox.removeTab(1)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         x = self.profMaxSpinBox.value()
         if self.sorted != True :
-            subprocess.run(["powershell","-Command",f"{self.binPath}\\xan.exe sort -s {x} -o '{self.dataPath}\\tempsort.csv' '{csvInput}'"])
-            df = read_csv(f"{self.dataPath}\\tempsort.csv",index_col=False)
+            subprocess.run(["powershell","-Command",f"{self.binPath}/xan.exe sort -s {x} -o '{self.dataPath}/tempsort.csv' '{csvInput}'"])
+            df = read_csv(f"{self.dataPath}/tempsort.csv",index_col=False)
             df["timestamp"] = to_numeric(df["timestamp"])
             if self.OldBtn.checkState() == Qt.Checked:
                 df = df[df["timestamp"] < (self.year-10)]
             if self.OldBtn.checkState() == Qt.PartiallyChecked:
                 df = df[df["timestamp"] < (self.year-5)]
-            df.to_csv(f"{self.dataPath}\\tempsort.csv", index=False)
+            df.to_csv(f"{self.dataPath}/tempsort.csv", index=False)
             print("Sorting...")
-            self.sortedCSV = f"{self.dataPath}\\tempsort.csv"
+            self.sortedCSV = f"{self.dataPath}/tempsort.csv"
             csvInput = self.sortedCSV
             self.sorted = True
 
@@ -395,6 +439,9 @@ class MainWindow(QWidget):
             csv_reader = csv.reader(csvfile, delimiter=',')
             next(csv_reader, None)
             for row in csv_reader:
+                if row[1] == '':
+                    break
+                    return
                 if row[x] == self.name and row[0] == self.annee :
                     self.mass += int(row[-1])
                 if row[x] == self.name and row[0] != self.annee :
@@ -407,7 +454,7 @@ class MainWindow(QWidget):
                     self.name = row[x]
                     self.BigList[self.name] = []
             self.BigList[self.name].append((self.annee,self.mass))
-        #os.remove(f"{self.dataPath}\\tempsort.csv")
+        #os.remove(f"{self.dataPath}/tempsort.csv")
 
         rec = read_csv(self.selectCSV)
         uniqueTime = (rec['timestamp'].unique()).tolist()
@@ -462,8 +509,9 @@ class MainWindow(QWidget):
         self.TabBox.setCurrentIndex(1)
     
     def cellClickDupe(self,row,column):
-        link = self.DupeTable.item(row,1).text().replace("/","\\")+"\\"+self.DupeTable.item(row,2).text()
-        #print(link)
+        link = self.DupeTable.item(row,1).text()+"/"+self.DupeTable.item(row,2).text()
+        print(link)
+        #os.startfile(fr"{link}")
         subprocess.Popen(fr'explorer /select,"{link}"')
     def cellClick(self,row,column):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
@@ -476,10 +524,10 @@ class MainWindow(QWidget):
         x = self.profMaxSpinBox.value()
         col = "path"+str(x)
         df = df.loc[df[col].str.contains(link)]
-        df.to_csv(f"{self.dataPath}\\tempsortedfurther.csv", index=False)
+        df.to_csv(f"{self.dataPath}/tempsortedfurther.csv", index=False)
         self.profMaxSpinBox.setValue(x+1)
-        subprocess.run(["powershell","-Command",f"{self.binPath}\\xan.exe sort -s {x+1} -o '{self.dataPath}\\tempsortedfurther.csv' '{self.dataPath}\\tempsortedfurther.csv'"])
-        self.makeHeatmapTab(f"{self.dataPath}\\tempsortedfurther.csv")
+        subprocess.run(["powershell","-Command",f"{self.binPath}/xan.exe sort -s {x+1} -o '{self.dataPath}/tempsortedfurther.csv' '{self.dataPath}/tempsortedfurther.csv'"])
+        self.makeHeatmapTab(f"{self.dataPath}/tempsortedfurther.csv")
         QApplication.restoreOverrideCursor()
     def goBack(self):
         if self.oldLink == []:
@@ -493,9 +541,9 @@ class MainWindow(QWidget):
             x = self.profMaxSpinBox.value()
             col = "path"+str(x)
             df = df.loc[df[col].str.contains(link)]
-            df.to_csv(f"{self.dataPath}\\tempsortedfurther.csv", index=False)
+            df.to_csv(f"{self.dataPath}/tempsortedfurther.csv", index=False)
             self.profMaxSpinBox.setValue(x-1)
-            self.makeHeatmapTab(f"{self.dataPath}\\tempsortedfurther.csv")
+            self.makeHeatmapTab(f"{self.dataPath}/tempsortedfurther.csv")
             QApplication.restoreOverrideCursor()
     def changeOldBtn(self):
         if self.OldBtn.checkState() == Qt.Unchecked:
@@ -510,7 +558,7 @@ class MainWindow(QWidget):
         self.commandList = ["powershell",
             "-NoProfile", 
             "-ExecutionPolicy", "Bypass", 
-            "-File", f"{self.binPath}\\GetAllItems.ps1",
+            "-File", f"{self.binPath}/GetAllItems.ps1",
             "-fichier", f'{self.folderpath}',
             "-pathOutput", f"{self.dataPath}",
             "-xanPath", f"{self.xanPath}"]
@@ -525,7 +573,7 @@ class MainWindow(QWidget):
         QApplication.setOverrideCursor(Qt.CursorShape.BusyCursor)
         self.start_signal.emit()
     def setCSV(self):
-        self.selectCSV = f"{self.dataPath}\\output.csv"
+        self.selectCSV = f"{self.dataPath}/output.csv"
         self.Run3dBtn.setDisabled(0)
         self.RunAnalysisBtn.setDisabled(0)
         self.DupeBtn.setDisabled(0)
