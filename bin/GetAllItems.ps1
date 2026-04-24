@@ -9,11 +9,17 @@ param(
     )
 
           
-$fichierSortie = "output.csv"
-$maxDepth = 30 # pour la commande Get-ChildItem, "garde fou" contre des niveaux d'imbrications delirants...
+  $fichierSortie = "output.csv"
+  $maxDepth = 30 # pour la commande Get-ChildItem, "garde fou" contre des niveaux d'imbrications delirants...
 
-$fieldSep = ','
-
+  $fieldSep = ','
+  #$npipeClient = new-object System.IO.Pipes.NamedPipeClientStream(".", 'hmp_pipe', [System.IO.Pipes.PipeDirection]::InOut,
+  #    [System.IO.Pipes.PipeOptions]::None,
+  #  [System.Security.Principal.TokenImpersonationLevel]::Impersonation)
+    
+  #$npipeClient.Connect()
+  #$script:pipeWriter = new-object System.IO.StreamWriter($npipeClient)
+  #$pipeWriter.AutoFlush = $true
 # le fichier est a priori un dossier(repertoire)
 # l'arborescence decouverte est entierement embarquee dans la variable suivante
   $results = @()
@@ -22,7 +28,7 @@ $fieldSep = ','
   $overallLength = 0	
 	
 #Get all files in $dossier (Recursive)
-  #Write-Host "Acquisition des fichiers..."
+  Write-Host "Acquisition des fichiers..."
   if ($plus10ans) {
     $Files = Get-childitem -Path "$fichier" -File -Recurse -Force -Depth $maxDepth -ErrorAction SilentlyContinue | Where-Object {$_.lastwritetime -lt (get-date).addDays(-3650)}   
 	  
@@ -55,16 +61,18 @@ $fieldSep = ','
   $index = 1
 #Get Date, path, name and size of all files in a .csv
   foreach ($file in $Files) {
+    $start=0
     $Year = $file.LastWriteTime.Year
     $fullname = $file.FullName;$onlypath = Split-Path -Path "$fullname" -Parent;
     #Separate the path (by \) in an array
     $pathArray = $onlypath -split "\\"
+    if ($pathArray[0] -eq ""){$start=2}
     $overallLength = $overallLength + $file.Length
     $details = [ordered] @{
             timestamp = $Year
         }
     $stringpath = ""
-    for($i=0;$i -lt $padding;$i++) {
+    for($i=$start;$i -lt $padding;$i++) {
         $details["path"+$i.ToString()] = $pathArray[0..$i] -join "/"
     }
     $details["Name"] = $file;$details["Size"] = $file.Length
@@ -73,6 +81,7 @@ $fieldSep = ','
     $shortfilename = $file.Name[0..59] -join '';$indexpadded = $index.ToString($NumberLengthString) 
     #Write-Host $shortfilename.PadRight(64) "$indexpadded/$NumberofFiles $percentDone% Done"
     Write-Host $percentDone
+    #$pipeWriter.WriteLine("$percentDone")
     $index++
   }
   
@@ -82,7 +91,7 @@ $fieldSep = ','
   $results | export-csv -Path "$pathOutput\temp.csv" -NoTypeInformation -Encoding UTF8
   &$xanPath\xan.exe sort -s 0 -o "$pathOutput\$fichierSortie" "$pathOutput\temp.csv"
   #Write-Host "Fichier ecrit: " $pathOutput"\"$fichierSortie
-  #$npipeClient.Dispose()
+  $npipeClient.Dispose()
   
   del "$pathOutput\temp.csv"
   
