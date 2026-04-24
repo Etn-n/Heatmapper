@@ -2,15 +2,81 @@ import subprocess
 import os
 import sys
 import csv
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEvent, QObject, Signal, Slot
 from PySide6.QtWidgets import QSpinBox, QTabWidget, QCheckBox, QTableWidget,QDialogButtonBox, QTableWidgetItem, QApplication, QLineEdit, QWidget, QLabel, QGridLayout, QGroupBox, QPushButton, QFileDialog
 from PySide6.QtGui import QIcon, QColor, QGuiApplication
 from pandas import read_csv,to_numeric
 import matplotlib.pyplot as plt
 import datetime
+import trio
+import outcome
+import signal
+import traceback
 
+
+
+
+class AsyncHelper(QObject):
+
+    class ReenterQtObject(QObject):
+        """ This is a QObject to which an event will be posted, allowing
+            Trio to resume when the event is handled. event.fn() is the
+            next entry point of the Trio event loop. """
+        def event(self, event):
+            if event.type() == QEvent.Type.User + 1:
+                event.fn()
+                return True
+            return False
+
+    class ReenterQtEvent(QEvent):
+        """ This is the QEvent that will be handled by the ReenterQtObject.
+            self.fn is the next entry point of the Trio event loop. """
+        def __init__(self, fn):
+            super().__init__(QEvent.Type(QEvent.Type.User + 1))
+            self.fn = fn
+
+    def __init__(self, worker, entry):
+        super().__init__()
+        self.reenter_qt = self.ReenterQtObject()
+        self.entry = entry
+
+        self.worker = worker
+        if hasattr(self.worker, "start_signal") and isinstance(self.worker.start_signal, Signal):
+            self.worker.start_signal.connect(self.launch_guest_run)
+
+    @Slot()
+    def launch_guest_run(self):
+        """ To use Trio and Qt together, one must run the Trio event
+            loop as a "guest" inside the Qt "host" event loop. """
+        if not self.entry:
+            raise Exception("No entry point for the Trio guest run was set.")
+        trio.lowlevel.start_guest_run(
+            self.entry,
+            run_sync_soon_threadsafe=self.next_guest_run_schedule,
+            done_callback=self.trio_done_callback,
+        )
+
+    def next_guest_run_schedule(self, fn):
+        """ This function serves to re-schedule the guest (Trio) event
+            loop inside the host (Qt) event loop. It is called by Trio
+            at the end of an event loop run in order to relinquish back
+            to Qt's event loop. By posting an event on the Qt event loop
+            that contains Trio's next entry point, it ensures that Trio's
+            event loop will be scheduled again by Qt. """
+        QApplication.postEvent(self.reenter_qt, self.ReenterQtEvent(fn))
+
+    def trio_done_callback(self, outcome_):
+        """ This function is called by Trio when its event loop has
+            finished. """
+        if isinstance(outcome_, outcome.Error):
+            error = outcome_.error
+            traceback.print_exception(type(error), error, error.__traceback__)
 
 class MainWindow(QWidget):
+    start_signal = Signal()
+    
+    PIPE_NAME = r'\\.\pipe\hmp_pipe'
+    ipc_message=""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.resize(1000,800)
@@ -134,7 +200,6 @@ class MainWindow(QWidget):
         Big_layout.addWidget(self.TabBox,3,0,1,5)
         Big_layout.addWidget(self.goBackBtn,4,4)
 
-
     def makeDupeTab(self):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         if os.path.exists(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempdupesorted.csv"):
@@ -240,9 +305,7 @@ class MainWindow(QWidget):
         #os.remove(f"{os.path.dirname(os.path.realpath(__file__))}\\data\\tempShow.csv")
         self.TabBox.insertTab(0, TableLayout, "CSV (Preview)")
         self.TabBox.setCurrentIndex(0)
-        
-
-        
+          
     def plot3d(self):
         df = read_csv(self.selectCSV)
         df["timestamp"] = to_numeric(df["timestamp"])
@@ -435,30 +498,33 @@ class MainWindow(QWidget):
             self.OldBtn.setText("Only files over 5 years old are kept (click to change)")
         if self.OldBtn.checkState() == Qt.Checked:
             self.OldBtn.setText("Only files over 10 years old are kept (click to change)")
-    def GetItems(self):
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        commandList = ["powershell",
+    
+    @Slot()
+    async def asyncGetItems(self):
+        self.commandList = ["powershell",
             "-NoProfile", 
             "-ExecutionPolicy", "Bypass", 
             "-File", f"{os.path.dirname(os.path.realpath(__file__))}\\data\\GetAllItems.ps1",
             "-fichier", f'{self.folderpath}',
             "-pathOutput", f"{os.path.dirname(os.path.realpath(__file__))}\\data"]
-
         if self.OldBtn.checkState() == Qt.PartiallyChecked:
-            commandList.append("-plus5ans")
+            self.commandList.append("-plus5ans")
         if self.OldBtn.checkState() == Qt.Checked:
-            commandList.append("-plus10ans")     
-
-        subprocess.run(commandList)
+            self.commandList.append("-plus10ans") 
+        await trio.run_process(self.commandList)
+        self.setCSV()
+        QApplication.restoreOverrideCursor()
+    def GetItems(self):
+        QApplication.setOverrideCursor(Qt.CursorShape.BusyCursor)
+        self.start_signal.emit()
+    def setCSV(self):
         self.selectCSV = f"{os.path.dirname(os.path.realpath(__file__))}\\data\\output.csv"
-        #self.lineedit.setText(f"")
         self.Run3dBtn.setDisabled(0)
         self.RunAnalysisBtn.setDisabled(0)
         self.DupeBtn.setDisabled(0)
         for i in range(0,self.TabBox.count()):
             self.TabBox.removeTab(i)
         self.updateLabel()
-        QApplication.restoreOverrideCursor()
 
     def makeTab(self):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
@@ -538,6 +604,8 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     widget = MainWindow()
+    async_helper = AsyncHelper(widget, widget.asyncGetItems)
     widget.show()
 
-    sys.exit(app.exec())
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    app.exec()
