@@ -6,14 +6,12 @@ python > 3.13 <br>
 Windows only (because of os module) <br>
 Modules :<br>
 <ul>
-<li>subprocess,os,sys,csv (should be installed automatically with python)</li>
+<li>subprocess,os,sys,csv,signal,traceback (should be installed automatically with python)</li>
 <li>PySide6</li>
 <li>pandas</li>
 <li>matplotlib</li>
 <li>trio</li>
 <li>outcome</li>
-<li>signal</li>
-<li>traceback</li>
 </ul>
 <br>
 To install them all : <code>pip install -r requirements.txt</code>
