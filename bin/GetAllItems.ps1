@@ -91,7 +91,7 @@ param(
   $results | export-csv -Path "$pathOutput\temp.csv" -NoTypeInformation -Encoding UTF8
   &$xanPath\xan.exe sort -s 0 -o "$pathOutput\$fichierSortie" "$pathOutput\temp.csv"
   #Write-Host "Fichier ecrit: " $pathOutput"\"$fichierSortie
-  $npipeClient.Dispose()
+  #$npipeClient.Dispose()
   
   del "$pathOutput\temp.csv"
   
