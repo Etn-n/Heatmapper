@@ -10,6 +10,10 @@ Modules :<br>
 <li>PySide6</li>
 <li>pandas</li>
 <li>matplotlib</li>
+<li>trio</li>
+<li>outcome</li>
+<li>signal</li>
+<li>traceback</li>
 </ul>
 <br>
 To install them all : <code>pip install -r requirements.txt</code>
