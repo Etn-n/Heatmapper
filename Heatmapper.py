@@ -85,6 +85,8 @@ class MainWindow(QWidget):
         self.binPath = f"{os.path.dirname(os.path.realpath(__file__))}\\bin"
         self.xanPath = self.binPath
         self.dataPath = f"{os.path.dirname(os.path.realpath(__file__))}\\data"
+        if os.path.exists(f"{self.dataPath}") == False:
+            os.mkdir(f"{self.dataPath}")
         self.setWindowIcon(QIcon(f"{self.binPath}\\icon.png"))
         Big_layout = QGridLayout()
         self.setLayout(Big_layout)
